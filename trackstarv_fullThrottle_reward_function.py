@@ -1,11 +1,11 @@
 def reward_function(on_track, x, y, distance_from_center, car_orientation, progress, steps, throttle, steering, track_width, waypoints, closest_waypoint):
-    
+
     '''
     '''
 
     import math
 
-    #track width markers
+    # track width markers
     marker_1 = 0.1 * track_width
     marker_2 = 0.2 * track_width
     marker_3 = 0.3 * track_width
@@ -13,7 +13,21 @@ def reward_function(on_track, x, y, distance_from_center, car_orientation, progr
     marker_5 = 0.5 * track_width
     marker_10 = track_width
 
-    # reward car for staying on the track
+    # throttle thresholds
+    low_throttle_threshold = 0.5
+    mid_throttle_threshold = 0.75
+    high_throttle_threshold = 1
+
+    # steering thresholds
+    abs_steering_threshold = 0.85
+
+    # reward for making progress, penalize reward for falling off track
+    if not on_track:
+        reward = -1
+    else:
+        reward = progress * 0.25
+
+    # reward car for distance_from_center
     reward = 1e-3 # 0.001
     if distance_from_center >= 0.0 and distance_from_center <= marker_1:
         reward = 0.6
@@ -24,23 +38,20 @@ def reward_function(on_track, x, y, distance_from_center, car_orientation, progr
     elif distance_from_center <= marker_5:
         reward = 0.2
     elif distance_from_center <= marker_10:
-        reward = 0.1
+        reward = 0.05
     else:
         reward = 1e-3  # likely crashed/ close to off track
 
     # penalize reward if the car is steering way too much
-    ABS_STEERING_THRESHOLD = 0.5
-    if abs(steering) > ABS_STEERING_THRESHOLD:
-        reward *= 0.75
+    if abs(steering) > abs_steering_threshold:
+        reward *= 0.95
 
     # penalize reward for the car taking slow actions
-    LOW_THROTTLE_THRESHOLD = 0.75
-    if throttle <= LOW_THROTTLE_THRESHOLD:
-        reward *= 0.5
-'''
-    #reward for i wanna go fast
-    HIGH_THROTTLE_THRESHOLD = 1
-    if throttle == HIGH_THROTTLE_THRESHOLD:
-        reward *= 1.1
-'''
+    if throttle <= low_throttle_threshold:
+        reward *= 0.7
+
+    # reward for maximum throttle
+    if throttle >= high_throttle_threshold:
+        reward *= 1.25
+
     return float(reward)

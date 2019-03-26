@@ -221,9 +221,12 @@ class DeepRacerEnv(gym.Env):
         ack_msg.drive.steering_angle = steering_angle
         ack_msg.drive.speed = throttle
         self.ack_publisher.publish(ack_msg)
-    def reward_function(on_track, x, y, distance_from_center, car_orientation, progress, steps, throttle, steering, track_width, waypoints, closest_waypoint):
+
+     def reward_function(on_track, x, y, distance_from_center, car_orientation, progress, steps, throttle, steering, track_width, waypoints, closest_waypoint):
+
         import math
 
+        # track width markers
         marker_1 = 0.1 * track_width
         marker_2 = 0.2 * track_width
         marker_3 = 0.3 * track_width
@@ -231,36 +234,46 @@ class DeepRacerEnv(gym.Env):
         marker_5 = 0.5 * track_width
         marker_10 = track_width
 
-        reward = 1e-3
+        # throttle thresholds
+        low_throttle_threshold = 0.5
+        mid_throttle_threshold = 0.75
+        high_throttle_threshold = 1
+
+        # steering thresholds
+        abs_steering_threshold = 0.85
+
+        # reward for making progress, penalize reward for falling off track
+        if not on_track:
+            reward = -1
+        else:
+            reward = progress * 0.25
+
+        # reward car for distance_from_center
+        reward = 1e-3 # 0.001
         if distance_from_center >= 0.0 and distance_from_center <= marker_1:
-            reward = 0.75
-        elif distance_from_center <= marker_2:
             reward = 0.6
-        elif distance_from_center <= marker_3:
+        elif distance_from_center <= marker_2:
             reward = 0.5
         elif distance_from_center <= marker_4:
             reward = 0.4
         elif distance_from_center <= marker_5:
-            reward = 0.3
+            reward = 0.2
         elif distance_from_center <= marker_10:
-            reward = 0.1
+            reward = 0.05
         else:
             reward = 1e-3  # likely crashed/ close to off track
 
         # penalize reward if the car is steering way too much
-        ABS_STEERING_THRESHOLD = 0.5
-        if abs(steering) > ABS_STEERING_THRESHOLD:
-            reward *= 0.8
+        if abs(steering) > abs_steering_threshold:
+            reward *= 0.95
 
         # penalize reward for the car taking slow actions
-        THROTTLE_THRESHOLD = 0.65
-        if throttle < THROTTLE_THRESHOLD:
-            reward *= 0.8
+        if throttle <= low_throttle_threshold:
+            reward *= 0.7
 
-        #reward for going fast
-        THROTTLE_THRESHOLD = 1
-        if throttle == THROTTLE_THRESHOLD:
-            reward = 0.9
+        # reward for maximum throttle
+        if throttle >= high_throttle_threshold:
+            reward *= 1.25
 
         return float(reward)
     def infer_reward_state(self, steering_angle, throttle):
@@ -323,6 +336,8 @@ class DeepRacerEnv(gym.Env):
         self.next_state = state
         
         # Trace logs to help us debug and visualize the training runs
+        # SIM_TRACE_LOG:419(episodes),188(steps),2.3002(x),0.6493(y),-0.2321(yaw),0.35(steering_angle),1.67(throttle),15(action_taken),0.5000(reward),False(draft),True(draft),100.0000(draft),68,(draft)17.67(draft),1553557574.1711268(draft)
+
         stdout_ = 'SIM_TRACE_LOG:%d,%d,%.4f,%.4f,%.4f,%.2f,%.2f,%d,%.4f,%.4f,%d,%s,%s,%.4f,%d,%d,%.2f,%s\n' % (
         self.episodes, self.steps, self.x, self.y,
         self.yaw,
